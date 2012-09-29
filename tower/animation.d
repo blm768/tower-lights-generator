@@ -3,10 +3,13 @@ module tower.animation;
 import std.algorithm;
 import std.array;
 import std.conv;
+public import std.datetime;
 import std.stdio;
 import std.string;
 
-public import tower.frame;
+import util.property;
+
+public import tower.color;
 
 class Animation {
 	this(size_t width, size_t height) {
@@ -15,23 +18,26 @@ class Animation {
 	}
 
 	void writeV3File(string filename) {
+		//Open file.
 		auto file = File(filename, "w");
+		//Write version.
 		file.writeln("0.3");
 		for(size_t i = 0; i < 3; ++i) {
 			write(file, Color(255, 255, 255));
 		}
 		file.writeln();
+		//Write dummy palette data.
 		for(size_t i = 0; i < 2; ++i) {
 			for(size_t j = 0; j < 18; ++j) {
 				write(file, Color(255, 255, 255));
 			}
 			file.writeln();
 		}
-		file.writeln(height, " ", width, " ", numFrames);
-		file.close();
-		file = File(filename, "r");
-		foreach(const(char)[] line; file.byLine) {
-			writeln(line.strip.split(" ").length);
+		//Write metrics.
+		file.writeln(frames.length, " ", height, " ", width, " ");
+		//Write frames.
+		foreach(Frame f; frames) {
+			f.writeV3(file);
 		}
 	}
 
@@ -43,29 +49,59 @@ class Animation {
 		return _height;
 	}
 
-	@property size_t numFrames() {
-		return _numFrames;
-	}
+	Frame[] frames;
 
 	private:
-	size_t _width, _height, _numFrames;
+	size_t _width, _height;
 
 	void write(File f, Color c) {
 		foreach(string s; c.values[].map!(a => to!string(a))) {
 			f.write(s, " ");
 		}
 	}
-
-	struct Frame {
-		this() {
-			data.length = width * height;
-		}
-
-		Color opIndex(size_t x, size_t y) {
-			assert(x < width && y < height);
-			return data[x + y * width];
-		}
-
-		Color[] data;
-	}
 }
+
+struct Point {
+	size_t x, y;
+}
+
+/++
+Represents a frame of an animation
++/
+struct Frame {
+	this(Animation a) {
+		_width = a.width;
+		_height = a.height;
+		data.length = width * height;
+	}
+
+	ref Color opIndex(size_t x, size_t y) {
+		assert(x < width && y < height);
+		return data[x + y * width];
+	}
+
+	ref Color opIndex(Point p) {
+		return opIndex(p.x, p.y);
+	}
+
+	Duration duration;
+
+	mixin reader!"width";
+	mixin reader!"height";
+
+	protected:
+	void writeV3(File file) {
+		//Write duration.
+		file.writefln("%2.2d:%2.2d.%3.3d", duration.minutes, duration.seconds, duration.fracSec.msecs);
+		for(size_t row = 0; row < height; ++row) {
+			Color[] rowData = data[row * width .. (row + 1) * width];
+			file.writeln(rowData.map!(a => a.values[].map!(b => b.to!string).join(" ")).join(" "));
+		}
+	}
+
+	private:
+	Color[] data;
+
+	size_t _width, _height;
+}
+

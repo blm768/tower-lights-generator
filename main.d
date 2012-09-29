@@ -3,14 +3,12 @@ module main;
 import std.stdio;
 import std.string;
 
-import tower.animation;
+import tower.generator;
 
 int main(string[] args) {
-	auto animation = new Animation;
-	animation.writeV3File("test.tan");
-	auto file = File("../../test.tan");
-	foreach(const(char)[] line; file.byLine) {
-		writeln(line.strip.split(" ").length);
-	}
+	auto a = new Animation(4, 10);
+	auto gen = new SnowGenerator(a);
+	a.frames ~= gen.generate(5);
+	a.writeV3File("test.tan");
     return 0;
 }
