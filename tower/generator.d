@@ -33,7 +33,7 @@ abstract class Generator {
 	}
 
 	///The animation for which this generator is used
-	mixin reader!"animation";
+	mixin reader!_animation;
 
 	private:
 	Animation _animation;
@@ -47,17 +47,21 @@ abstract class ColorGenerator {
 	Color generate();
 }
 
+/++
+Generates a snowfall-like pattern of falling dots
++/
 class SnowGenerator: Generator {
-	this(Animation a, ColorGenerator c = new RandomHueGenerator) {
+	this(Animation a, size_t framesPerNewPoint, ColorGenerator c = new RandomHueGenerator) {
 		super(a);
 		cGen = c;
+		this.framesPerNewPoint = framesPerNewPoint;
 	}
 
 	override Frame generate() {
 		auto f = Frame(animation);
 		f.duration = dur!"msecs"(500);
 		//Should a point be generated?
-		if(uniform(0, 3) == 0) {
+		if(uniform(1, 3) == 0) {
 			auto point = ColoredPoint();
 			//Overflow makes this work out quite nicely.
 			//To do: I should probably use signed ints.
@@ -83,6 +87,11 @@ class SnowGenerator: Generator {
 
 	///A doubly-linked list of "flakes"
 	DList!ColoredPoint points;
+	///The average number of frames per new point generated
+	//mixin validatingProperty!(_framesPerNewPoint, "value > 0");
+	mixin property!_framesPerNewPoint;
+	private size_t _framesPerNewPoint;
+	///The color generator
 	ColorGenerator cGen;
 
 }
@@ -97,4 +106,6 @@ class RandomHueGenerator: ColorGenerator {
 	override Color generate() {
 		return Color.hsv(uniform(0.0, 1.0), 1.0, 1.0);
 	}
+
+
 }

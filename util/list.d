@@ -209,7 +209,7 @@ struct DList(T) {
 		Node* prev, next;
 	}
 
-	mixin reader!"length";
+	mixin reader!_length;
 
 	private:
 	Node* head, tail;

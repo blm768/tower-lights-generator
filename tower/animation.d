@@ -93,8 +93,8 @@ struct Frame {
 
 	Duration duration;
 
-	mixin reader!"width";
-	mixin reader!"height";
+	mixin reader!_width;
+	mixin reader!_height;
 
 	protected:
 	void writeV3(File file, ref Duration time) {
