@@ -66,6 +66,12 @@ struct Point {
 	size_t x, y;
 }
 
+struct ColoredPoint {
+	Point position;
+	alias position this;
+	Color color;
+}
+
 /++
 Represents a frame of an animation
 +/
