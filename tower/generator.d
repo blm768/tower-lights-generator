@@ -39,9 +39,18 @@ abstract class Generator {
 	Animation _animation;
 }
 
+/++
+Generates random colors to be used with a Generator
++/
+abstract class ColorGenerator {
+	alias uniform!("[]", ubyte, ubyte) uniformUbyte;
+	Color generate();
+}
+
 class SnowGenerator: Generator {
-	this(Animation a) {
+	this(Animation a, ColorGenerator c = new RandomHueGenerator) {
 		super(a);
+		cGen = c;
 	}
 
 	override Frame generate() {
@@ -53,7 +62,7 @@ class SnowGenerator: Generator {
 			//Overflow makes this work out quite nicely.
 			//To do: I should probably use signed ints.
 			point.position = Point(uniform(0, f.width - 1), size_t.max);
-			point.color = Color(255, 255, 255);
+			point.color = cGen.generate();
 			points.insertFront(point);
 		}
 		//Loop over the points.
@@ -63,7 +72,7 @@ class SnowGenerator: Generator {
 			if(point.y >= f.height) {
 				points.remove(node);
 			} else {
-				f[*point] = Color(255, 255, 255);
+				f[*point] = point.color;
 			}
 		}
 		return f;
@@ -74,4 +83,18 @@ class SnowGenerator: Generator {
 
 	///A doubly-linked list of "flakes"
 	DList!ColoredPoint points;
+	ColorGenerator cGen;
+
+}
+
+class RandomColorGenerator: ColorGenerator {
+	override Color generate() {
+		return Color(uniformUbyte(0, 255), uniformUbyte(0, 255), uniformUbyte(0, 255));
+	}
+}
+
+class RandomHueGenerator: ColorGenerator {
+	override Color generate() {
+		return Color.hsv(uniform(0.0, 1.0), 1.0, 1.0);
+	}
 }
