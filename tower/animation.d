@@ -36,8 +36,9 @@ class Animation {
 		//Write metrics.
 		file.writeln(frames.length, " ", height, " ", width, " ");
 		//Write frames.
+		Duration time;
 		foreach(Frame f; frames) {
-			f.writeV3(file);
+			f.writeV3(file, time);
 		}
 	}
 
@@ -90,13 +91,15 @@ struct Frame {
 	mixin reader!"height";
 
 	protected:
-	void writeV3(File file) {
-		//Write duration.
-		file.writefln("%2.2d:%2.2d.%3.3d", duration.minutes, duration.seconds, duration.fracSec.msecs);
+	void writeV3(File file, ref Duration time) {
+		//Write start time.
+		file.writefln("%2.2d:%2.2d.%3.3d", time.minutes, time.seconds, time.fracSec.msecs);
 		for(size_t row = 0; row < height; ++row) {
 			Color[] rowData = data[row * width .. (row + 1) * width];
+			//To do: coverage shows a whole lot of hits here. Is that a DMD bug?
 			file.writeln(rowData.map!(a => a.values[].map!(b => b.to!string).join(" ")).join(" "));
 		}
+		time += duration;
 	}
 
 	private:
