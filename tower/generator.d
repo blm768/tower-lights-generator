@@ -9,64 +9,50 @@ import util.property;
 
 public import tower.animation;
 
-/++
-Generates frames to be placed into an animation
-+/
-abstract class Generator {
-	/++
-	Creates a generator suitable for use with the given animation
-	+/
-	this(Animation animation) {
-		_animation = animation;
+alias Frame delegate(Animation a) Generator;
+
+alias Color delegate() ColorGenerator;
+
+///Generates an array of frames
+void generate(Animation a, Generator gen, size_t numFrames) {
+	auto frames = uninitializedArray!(Frame[])(numFrames);
+	for(size_t i = 0; i < numFrames; ++i) {
+		frames[i] = gen(a);
 	}
+	a.frames ~= frames;
+}
 
-	///Generates a single frame
-	Frame generate();
 
-	///Generates an array of frames
-	Frame[] generate(size_t numFrames) {
-		auto frames = uninitializedArray!(Frame[])(numFrames);
-		for(size_t i = 0; i < numFrames; ++i) {
-			frames[i] = generate();
+alias uniform!("[]", ubyte, ubyte) uniformUbyte;
+
+Generator constantFrame(Duration d, Color c) {
+	Frame generate(Animation a) {
+		Frame f = Frame(a);
+		f.duration = d;
+		for(size_t y = 0; y < a.height; ++y) {
+			for(size_t x = 0; x < a.width; ++x) {
+				f[x, y] = c;
+			}
 		}
-		return frames;
+		return f;
 	}
-
-	///The animation for which this generator is used
-	mixin reader!_animation;
-
-	private:
-	Animation _animation;
+	return &generate;
 }
 
-/++
-Generates random colors to be used with a Generator
-+/
-abstract class ColorGenerator {
-	alias uniform!("[]", ubyte, ubyte) uniformUbyte;
-	Color generate();
-}
-
-/++
-Generates a snowfall-like pattern of falling dots
-+/
-class SnowGenerator: Generator {
-	this(Animation a, size_t framesPerNewPoint, ColorGenerator c = new RandomHueGenerator) {
-		super(a);
-		cGen = c;
-		this.framesPerNewPoint = framesPerNewPoint;
-	}
-
-	override Frame generate() {
-		auto f = Frame(animation);
-		f.duration = dur!"msecs"(500);
+Generator snow(Duration d, size_t fallFrames, size_t framesPerNewPoint, ColorGenerator cGen = randomHue) {
+	size_t currentFrame = 0;
+	//A doubly-linked list of "flakes"
+	DList!ColoredPoint points;
+	Frame generate(Animation a) {
+		auto f = Frame(a);
+		f.duration = d;
 		//Should a point be generated?
-		if(uniform(1, 3) == 0) {
+		if(currentFrame < fallFrames && uniform(1, 3) == 1) {
 			auto point = ColoredPoint();
 			//Overflow makes this work out quite nicely.
 			//To do: I should probably use signed ints.
 			point.position = Point(uniform(0, f.width - 1), size_t.max);
-			point.color = cGen.generate();
+			point.color = cGen();
 			points.insertFront(point);
 		}
 		//Loop over the points.
@@ -79,33 +65,84 @@ class SnowGenerator: Generator {
 				f[*point] = point.color;
 			}
 		}
+		++currentFrame;
 		return f;
 	}
-
-	//Pull in the superclass's overloaded version of generate().
-	alias super.generate generate;
-
-	///A doubly-linked list of "flakes"
-	DList!ColoredPoint points;
-	///The average number of frames per new point generated
-	//mixin validatingProperty!(_framesPerNewPoint, "value > 0");
-	mixin property!_framesPerNewPoint;
-	private size_t _framesPerNewPoint;
-	///The color generator
-	ColorGenerator cGen;
-
+	return &generate;
 }
 
-class RandomColorGenerator: ColorGenerator {
-	override Color generate() {
+Generator zip(Duration d, Color l, Color r) {
+	size_t currentFrame = 0;
+	Frame generate(Animation a) {
+		Frame f = Frame(a);
+		f.duration = d;
+		for(size_t y = 0; y < a.height; y += 2) {
+			for(size_t x = 0; x < currentFrame; ++x) {
+				f[x, y] = l;
+			}
+		}
+		for(size_t y = 1; y < a.height; y += 2) {
+			for(int x = a.width - 1; x >= cast(int)(a.width - currentFrame); --x) {
+				f[x, y] = r;
+			}
+		}
+		if(currentFrame < a.width) {
+			++currentFrame;
+		}
+		return f;
+	}
+	return &generate;
+}
+
+Generator wave(Duration d, float period, float velocity) {
+	float t = 0;
+	Frame generate(Animation a) {
+		auto f = Frame(a);
+		f.duration = d;
+
+		return f;
+	}
+	return &generate;
+}
+
+Generator mix(Duration d, Generator g1, Generator g2, float fac0, float fac1, size_t frames) {
+	float factor = fac0;
+	float step = (fac1 - fac0) / cast(float)frames;
+	size_t frame = 0;
+	Frame generate(Animation a) {
+		Frame f = g1(a);
+		f.duration = d;
+		Frame second = g2(a);
+		for(size_t y = 0; y < a.height; ++y) {
+			for(size_t x = 0; x < a.width; ++x) {
+				f[x, y] = f[x, y].blend(second[x, y], factor);
+			}
+		}
+		++frame;
+		if(frame < frames)
+			{factor += step;}
+		return f;
+	}
+	return &generate;
+}
+
+ColorGenerator constant(Color c) {
+	Color generate() {
+		return c;
+	}
+	return &generate;
+}
+
+ColorGenerator random() {
+	Color generate() {
 		return Color(uniformUbyte(0, 255), uniformUbyte(0, 255), uniformUbyte(0, 255));
 	}
+	return &generate;
 }
 
-class RandomHueGenerator: ColorGenerator {
-	override Color generate() {
+ColorGenerator randomHue() {
+	Color generate() {
 		return Color.hsv(uniform(0.0, 1.0), 1.0, 1.0);
 	}
-
-
+	return &generate;
 }
